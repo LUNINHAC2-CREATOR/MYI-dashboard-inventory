@@ -1,0 +1,29 @@
+---
+- name: Renovação Automática de Certificados Let's Encrypt
+  hosts: webservers
+  become: yes
+  vars:
+    domains: ["example.com", "www.example.com"]
+    email: admin@example.com
+
+  tasks:
+  - name: Instalar certbot
+    package:
+      name: certbot
+      state: present
+
+  - name: Obter certificados
+    community.crypto.acme_certificate:
+      account_key_src: /etc/ssl/private/account.key
+      csr: /etc/ssl/csr/{{ domains[0] }}.csr
+      dest: /etc/ssl/certs/{{ domains[0] }}.pem
+      acme_directory: https://acme-v02.api.letsencrypt.org/directory
+      challenge: http-01
+      acme_version: 2
+
+  - name: Recarregar serviços
+    handlers:
+      - name: Recarregar Nginx
+        service:
+          name: nginx
+          state: reloaded
