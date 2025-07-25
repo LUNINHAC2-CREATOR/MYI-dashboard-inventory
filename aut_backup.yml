@@ -1,0 +1,42 @@
+---
+- name: Rotina de Backup
+  hosts: inventory
+  become: yes
+  vars:
+    backup_dir: /backups
+    retention_days: 7
+
+  tasks:
+  - name: Criar diretório de backup
+    file:
+      path: "{{ backup_dir }}"
+      state: directory
+      mode: 0700
+
+  - name: Dump do banco de dados
+    community.mysql.mysql_db:
+      name: "{{ item }}"
+      state: dump
+      target: "{{ backup_dir }}/{{ item }}-%Y%m%d.sql"
+    loop: "{{ mysql_databases }}"
+
+  - name: Compactar backups
+    archive:
+      path: "{{ backup_dir }}"
+      dest: "/backups/archive/db-backup-{{ ansible_date_time.date }}.tar.gz"
+      remove: yes
+
+  - name: Rotacionar backups antigos
+    find:
+      paths: "/backups/archive"
+      age: "{{ retention_days }}d"
+      file_type: file
+      patterns: "*.tar.gz"
+    register: old_backups
+    changed_when: false
+
+  - name: Remover backups expirados
+    file:
+      path: "{{ item.path }}"
+      state: absent
+    loop: "{{ old_backups.files }}"
