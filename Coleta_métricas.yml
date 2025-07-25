@@ -1,0 +1,22 @@
+---
+- name: Configuração de Monitoramento
+  hosts: all
+  become: yes
+  vars:
+    prometheus_version: "2.45.0"
+    node_exporter_version: "1.6.1"
+
+  tasks:
+  - name: Instalar Node Exporter
+    include_role:
+      name: cloudalchemy.node_exporter
+    vars:
+      node_exporter_version: "{{ node_exporter_version }}"
+
+  - name: Configurar Prometheus (servidores de monitoramento)
+    include_role:
+      name: cloudalchemy.prometheus
+    when: "'monitoring' in group_names"
+    vars:
+      prometheus_targets:
+        node: ['_default_:9100']
