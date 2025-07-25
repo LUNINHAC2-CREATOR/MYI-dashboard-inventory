@@ -1,0 +1,47 @@
+---
+- name: Hardening de Segurança Básico
+  hosts: all
+  become: yes
+  vars:
+    allowed_users: ["admin", "deploy"]
+    ssh_port: 2222
+
+  tasks:
+  - name: Atualizar todos os pacotes
+    package:
+      name: "*"
+      state: latest
+
+  - name: Configurar firewall
+    community.general.ufw:
+      policy: deny
+      state: enabled
+      logging: on
+      rule: "{{ item }}"
+    loop:
+      - { port: "{{ ssh_port }}", proto: tcp }
+      - { port: 80, proto: tcp }
+      - { port: 443, proto: tcp }
+
+  - name: Configurar SSH
+    template:
+      src: templates/sshd_config.j2
+      dest: /etc/ssh/sshd_config
+      owner: root
+      group: root
+      mode: 0600
+    notify: Reiniciar SSH
+
+  - name: Criar usuários privilegiados
+    user:
+      name: "{{ item }}"
+      groups: sudo
+      shell: /bin/bash
+      append: yes
+    loop: "{{ allowed_users }}"
+
+  handlers:
+  - name: Reiniciar SSH
+    service:
+      name: sshd
+      state: restarted
