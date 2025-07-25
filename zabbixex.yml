@@ -1,0 +1,62 @@
+---
+- name: Atualizar Zabbix
+  hosts: zabbix_servers
+  become: yes
+  vars:
+    zabbix_version: "6.0" 
+
+  tasks:
+  - name: Atualizar repositório do Zabbix
+    yum_repository:
+      name: zabbix
+      description: Zabbix Official Repository
+      baseurl: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/rhel/{{ ansible_distribution_major_version }}/$basearch/"
+      gpgkey: "https://repo.zabbix.com/RPM-GPG-KEY-ZABBIX-A14FE591"
+      gpgcheck: yes
+      enabled: yes
+
+  - name: Parar serviços Zabbix (para evitar conflitos)
+    service:
+      name: "{{ item }}"
+      state: stopped
+    loop:
+      - zabbix-server
+      - zabbix-agent
+      - httpd  # ou nginx/apache 
+
+  - name: Atualizar pacotes Zabbix
+    yum:
+      name:
+        - zabbix-server-mysql
+        - zabbix-web-mysql
+        - zabbix-agent
+        - zabbix-sql-scripts
+      state: latest
+
+  - name: Executar atualização do banco de dados (se necessário)
+    shell: >
+      zcat /usr/share/zabbix-sql-scripts/mysql/upgrade-5.0-to-6.0.sql.gz | mysql -u zabbix -p{{ db_password }} zabbix
+    args:
+      warn: no
+    when:
+      - zabbix_version == "6.0"
+      
+
+  - name: Reiniciar serviços Zabbix
+    service:
+      name: "{{ item }}"
+      state: restarted
+      enabled: yes
+    loop:
+      - zabbix-server
+      - zabbix-agent
+      - httpd
+
+  - name: Verificar versão do Zabbix Agent
+    command: zabbix_agentd -V
+    register: zabbix_version_out
+    changed_when: false
+
+  - name: Mostrar versão atualizada
+    debug:
+      msg: "Versão atual do Zabbix Agent: {{ zabbix_version_out.stdout_lines[0] }}"
