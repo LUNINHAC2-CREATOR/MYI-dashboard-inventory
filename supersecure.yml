@@ -1,0 +1,83 @@
+---
+- name: Hardening SSH e ultra Proteção contra Port Scans
+  hosts: webservers
+  become: yes
+
+  vars:
+    nova_porta_ssh: 2222
+    usuario_ssh: seu_usuario
+
+  tasks:
+
+    - name: Instalar pacotes necessários
+      apt:
+        name:
+          - iptables
+          - psad
+          - openssh-server
+        state: present
+        update_cache: yes
+
+    - name: Configurar SSH seguro
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        create: yes
+      loop:
+        - { regexp: '^#?Port ', line: "Port {{ nova_porta_ssh }}" }
+        - { regexp: '^#?PermitRootLogin ', line: 'PermitRootLogin no' }
+        - { regexp: '^#?PasswordAuthentication ', line: 'PasswordAuthentication no' }
+        - { regexp: '^#?AllowUsers ', line: "AllowUsers {{ usuario_ssh }}" }
+
+    - name: Adicionar regra iptables - FIN scan
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        tcp_flags: ALL FIN
+        jump: DROP
+
+    - name: Adicionar regra iptables - NULL scan
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        tcp_flags: ALL NONE
+        jump: DROP
+
+    - name: Adicionar regra iptables - XMAS scan
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        tcp_flags: ALL FIN,PSH,URG
+        jump: DROP
+
+    - name: Adicionar regra de log para FIN scans
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        tcp_flags: ALL FIN
+        jump: LOG
+        log_prefix: "PORTSCAN-FIN: "
+
+        - name: Certificar que PSAD está habilitado e atualizado
+      shell: |
+        psad --sig-update
+        systemctl enable psad
+        systemctl restart psad
+
+    - name: Reiniciar SSH
+      service:
+        name: ssh
+        state: restarted
+
+    - name: Salvar iptables permanentemente
+      shell: iptables-save > /etc/iptables.rules
+
+    - name: Criar script de restauração automática de iptables (opcional)
+      copy:
+        dest: /etc/network/if-pre-up.d/iptables
+        content: |
+          #!/bin/sh
+          iptables-restore < /etc/iptables.rules
+        mode: '0755'
