@@ -1,0 +1,48 @@
+---
+- name: Instalação e configuração do Python
+  hosts: inventory
+  become: yes
+  vars:
+    python_version: "3.10"
+    python_packages:
+      - python3-pip
+      - python3-venv
+      - python3-dev
+      - build-essential
+      - libssl-dev
+      - libffi-dev
+
+  tasks:
+    - name: Atualizar cache do apt
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Instalar dependências do sistema
+      apt:
+        name: "{{ python_packages }}"
+        state: present
+
+    - name: Instalar versão específica do Python
+      apt:
+        name: "python{{ python_version }}"
+        state: present
+
+    - name: Configurar alternativas para Python
+      alternatives:
+        name: python
+        path: "/usr/bin/python{{ python_version }}"
+        priority: 100
+
+    - name: Atualizar pip e setuptools
+      pip:
+        name:
+          - pip
+          - setuptools
+        state: latest
+        executable: "pip3"
+
+    - name: Criar ambiente virtual padrão
+      command: "python3 -m venv /opt/venv"
+      args:
+        creates: /opt/venv
