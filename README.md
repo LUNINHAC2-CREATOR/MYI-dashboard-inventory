@@ -1,1 +1,1 @@
-Meu dashboard utilizado tanto no AWX quanto no SEMAPHORE e no ANSIBLE na vs cli em meus servidores de gerenciamento, sinta-se a vontade para copiar e alterar os diversos scripts YAML, bash, terraform e outros. 
+Meu dashboard utilizado tanto no AWX quanto no Semaphore e no Ansible cli em meus servidores de gerenciamento. Sinta-se a vontade para copiar e alterar os diversos scripts YAML, bash, terraform e outros como futuros powershells e scripts python. 
